@@ -24,13 +24,13 @@ const PINS = "tokutei:2:4.3,eli:6:ba.li.na,cli:6:cs.in.li.na,eba:4:in.cs.ca.ba,d
 // 出典：名古屋市科学館「S519 炎色反応」の表（族・元素・色）と、岩手県立総合教育センター「綿棒を使った炎色反応」の「主な炎色反応」（2026-11-24 に読んだ）
 // 2つの資料の言い方：リチウム 深紅色／赤、ストロンチウム 深紅色／紅、カリウム 淡紫色／赤紫。ナトリウム 黄色／黄、カルシウム 橙赤色／橙赤、バリウム 黄緑色／黄緑、銅 青緑色／青緑、
 // ルビジウム 暗赤色、セシウム 青紫色、ホウ素 緑色／緑、ガリウム 青色／青、インジウム 藍色／藍
-const TABLE = { li: ["リチウム", ["深紅", "赤"], 1], na: ["ナトリウム", ["黄"], 1], k: ["カリウム", ["淡紫", "赤紫"], 1], rb: ["ルビジウム", ["暗赤"], 1], cs: ["セシウム", ["青紫"], 1],
-  ca: ["カルシウム", ["橙赤"], 2], sr: ["ストロンチウム", ["深紅", "紅"], 2], ba: ["バリウム", ["黄緑"], 2], cu: ["銅", ["青緑"], 11], b: ["ホウ素", ["緑"], 13], ga: ["ガリウム", ["青"], 13], in: ["インジウム", ["藍"], 13] };
+const TABLE = { li: ["リチウム", "赤色（深紅色）", 1], na: ["ナトリウム", "黄色", 1], k: ["カリウム", "赤紫色（淡紫色）", 1], rb: ["ルビジウム", "暗赤色", 1], cs: ["セシウム", "青紫色", 1],
+  ca: ["カルシウム", "橙赤色", 2], sr: ["ストロンチウム", "紅色（深紅色）", 2], ba: ["バリウム", "黄緑色", 2], cu: ["銅", "青緑色", 11], b: ["ホウ素", "緑色", 13], ga: ["ガリウム", "青色", 13], in: ["インジウム", "藍色", 13] };
 // 似た色（同じ問題に並べると答えが2つに見える組）。赤のなかま・紫のなかま・緑のなかま・青のなかま
 const SIMILAR = [["li", "sr", "rb", "ca"], ["k", "cs"], ["ba", "cu", "b"], ["ga", "in"]];
 const sim = (x, y) => x === y || SIMILAR.some((g) => g.includes(x) && g.includes(y));
 const grpOf = (e) => (TABLE[e][2] === 1 ? "alkali" : TABLE[e][2] === 2 ? "dorui" : "sonota");
-const colorOk = (e, label) => TABLE[e][1].every((w) => label.includes(w)) && label.endsWith("色") || TABLE[e][1].every((w) => label.includes(w + "色"));
+const colorOk = (e, label) => label === TABLE[e][1]; // 色名は資料の言い方そのもの（両方の資料の言い方を並べた表記）と完全に一致（PR #1 の CodeRabbit）
 // しくみの問題の答え（名古屋市科学館・岩手県立総合教育センター）
 const FACT = { shokuen: "黄色", tokutei: "物質にふくまれる元素", hgreen: "バリウム化合物", hblue: "銅化合物", hyellow: "ナトリウム化合物", mazeru: "これらの化合物を混ぜてつくる",
   shikumi: "電子が元の状態にもどるとき光を出す", kashi: "出る光が可視光のときだけ", dou: "ハロゲンをふくむものといっしょのとき", beil: "微量のハロゲン", cesium: "セシウム", shiro: "アルミニウムなどの金属の粉が燃える" };
@@ -51,13 +51,13 @@ const nameOf = Object.fromEntries(Object.entries(TABLE).map(([e, v]) => [v[0], e
           const es = P.opts.map((o) => nameOf[o]);
           if (es.some((x) => !x)) why.push("元素でない選び肢");
           if (P.ans !== TABLE[el][0]) why.push("答えが資料の表とちがう");
-          if (es.filter((x) => x && sim(x, el)).length !== 1) why.push("似た色の元素が並ぶ（答えが2つに見える）");
+          if (es.some((x, i) => es.some((y, j) => i < j && x && y && sim(x, y)))) why.push("似た色の元素が並ぶ（答えが2つに見える・まちがいどうしも）");
           if (!P.q.includes(G.EL[el].color) || !colorOk(el, G.EL[el].color)) why.push("問いの色が資料とちがう");
         } else {
           if (!colorOk(el, P.ans)) why.push("答えの色が資料とちがう");
           const es = P.opts.map((o) => Object.keys(TABLE).filter((e) => G.EL[e].color === o)[0]);
           if (es.some((x) => !x)) why.push("色でない選び肢");
-          if (es.filter((x) => x && sim(x, el)).length !== 1) why.push("似た色が並ぶ（答えが2つに見える）");
+          if (es.some((x, i) => es.some((y, j) => i < j && x && y && sim(x, y)))) why.push("似た色が並ぶ（答えが2つに見える・まちがいどうしも）");
           if (!P.q.includes(TABLE[el][0])) why.push("問いに元素の名前が無い");
         }
       } else {
@@ -83,6 +83,8 @@ const nameOf = Object.fromEntries(Object.entries(TABLE).map(([e, v]) => [v[0], e
   const okSrc = Object.values(G.SRC).every(([n, u]) => /^(名古屋市科学館|岩手県立総合教育センター)「/.test(n) && SRC_RE.test(u));
   check("出典は名古屋市科学館と岩手県立総合教育センターの資料だけ", okSrc);
   check("実験の手順・火の扱い方を問わない（元素記号あて・実験器具あて・水溶液あてと重ねない）", !G.KINDS.some((k) => { const all = [k.why, k.look, k.key, k.ans]; for (let i = 0; i < 100; i++) { const P = G.make(`${k.id}|nz${i}`); all.push(P.q, ...P.opts); } return /元素記号|ガスバーナーのつけ方|マッチ|保護めがね|エタノール|水溶液|リトマス|ビーカー/.test(all.join()); }));
+  // ホウ素は金属ではないので、色から元素の問いで「金属」と言い切らない。しくみの問いは、どの言い方でも答えと合う（PR #1 の CodeRabbit）
+  check("色から元素の問いで「ある金属」と言わない", !G.KINDS.filter((k) => /^e/.test(k.id) && G.EL[k.id.slice(1)]).some((k) => { for (let i = 0; i < 100; i++) if (/金属/.test(G.make(`${k.id}|mt${i}`).q)) return true; return false; }));
   check("2段目は3つ（アルカリ金属・アルカリ土類金属・そのほか）", Object.keys(G.GROUPS).join() === "alkali,dorui,sonota");
 }
 {
